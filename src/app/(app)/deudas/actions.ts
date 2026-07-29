@@ -101,8 +101,12 @@ export async function uploadDebtPhotoAction(formData: FormData) {
   if (!(file instanceof File) || file.size === 0) {
     redirectWithError(`${DEBTS_PATH}/${debtId}`, "Elegi una foto.");
   }
-  if (!file.type.startsWith("image/")) {
-    redirectWithError(`${DEBTS_PATH}/${debtId}`, "El archivo tiene que ser una imagen.");
+  // SVG excluido a proposito: es "image/*" pero puede llevar script adentro
+  // (riesgo de XSS si el link firmado se llega a abrir directo, fuera de un
+  // <img>) — una foto de comprobante nunca deberia ser un SVG de todas
+  // formas.
+  if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
+    redirectWithError(`${DEBTS_PATH}/${debtId}`, "El archivo tiene que ser una foto (jpg, png, etc).");
   }
   if (file.size > MAX_PHOTO_BYTES) {
     redirectWithError(`${DEBTS_PATH}/${debtId}`, "La foto es demasiado grande (maximo 8MB).");

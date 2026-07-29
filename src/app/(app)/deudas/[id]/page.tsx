@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { Camera, PlusCircle } from "lucide-react";
-import { addPaymentAction, uploadDebtPhotoAction } from "../actions";
+import { Camera } from "lucide-react";
+import { uploadDebtPhotoAction } from "../actions";
+import { AddPaymentForm } from "./add-payment-form";
 import { DeleteDebtButton } from "../delete-debt-button";
 import { DeletePhotoButton } from "./delete-photo-button";
-import { Button, Input, Label, PageHeader, Panel } from "@/components/ui";
+import { Button, PageHeader, Panel } from "@/components/ui";
 import { requireOrgManager } from "@/lib/auth";
-import { formatCurrency, formatDate, todayDateString } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -144,25 +145,7 @@ export default async function DeudaDetailPage({ params }: { params: Promise<{ id
         {balance > 0 ? (
           <Panel>
             <h2 className="mb-3 text-sm font-semibold">Agregar pago</h2>
-            <form action={addPaymentAction} className="grid gap-3">
-              <input type="hidden" name="debt_id" value={debt.id} />
-              <Label>
-                Monto
-                <Input name="amount" type="text" inputMode="decimal" placeholder="0.00" required />
-              </Label>
-              <Label>
-                Fecha
-                <Input name="paid_date" type="date" defaultValue={todayDateString()} required />
-              </Label>
-              <Label>
-                Notas (opcional)
-                <Input name="notes" />
-              </Label>
-              <Button className="gap-2 justify-self-start">
-                <PlusCircle className="h-4 w-4" aria-hidden />
-                Registrar pago
-              </Button>
-            </form>
+            <AddPaymentForm debtId={debt.id} balanceCents={balance} />
           </Panel>
         ) : null}
 

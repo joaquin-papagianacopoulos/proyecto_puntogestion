@@ -2,6 +2,8 @@
 
 Revisión hecha sobre todo el código de la aplicación (pantallas, funciones del lado del servidor y la base de datos). Se explica cada punto en términos simples; donde hace falta nombrar un archivo puntual, es solo como referencia para quien después tenga que corregirlo.
 
+**Actualización:** todos los puntos débiles de este informe ya se corrigieron, salvo uno que quedó documentado como pendiente a propósito (ver el final de la sección de Optimización). El detalle de cada corrección queda debajo de cada punto original, marcado como "✅ Corregido".
+
 ---
 
 ## 1. Seguridad — cómo está protegida la información
@@ -22,12 +24,18 @@ En general, el sistema está construido con buenos criterios de seguridad. El pu
 ### Riesgos encontrados (de mayor a menor importancia)
 
 **1. Una librería que se usa para leer archivos Excel tiene fallas de seguridad conocidas, sin corrección disponible todavía.**
-Se usa para importar listas de precios de proveedores (Configuración → Importar productos). Las fallas permitirían, con un archivo Excel armado a propósito, hacer que el servidor consuma recursos de más o se comporte de forma inesperada. Como esta función solo la puede usar el dueño o un administrador (no cualquier visitante), el riesgo práctico es bajo, pero como el servidor es compartido entre todas las distribuidoras que usan el sistema, conviene resolverlo antes de tener muchos clientes activos. Se recomienda cambiar esa librería por una alternativa mantenida, o al menos limitar qué tan grande puede ser el archivo subido.
+Se usa para importar listas de precios de proveedores (Configuración → Importar productos). Las fallas permitirían, con un archivo Excel armado a propósito, hacer que el servidor consuma recursos de más o se comporte de forma inesperada. Como esta función solo la puede usar el dueño o un administrador (no cualquier visitante), el riesgo práctico es bajo, pero como el servidor es compartido entre todas las distribuidoras que usan el sistema, conviene resolverlo antes de tener muchos clientes activos.
+
+✅ **Corregido.** Primero probé cambiar a otra librería mantenida (`exceljs`), pero terminaba trayendo *más* fallas de seguridad de arrastre (una librería de compresión interna con sus propios problemas) — hubiera sido peor el remedio que la enfermedad. En cambio, se actualizó a la versión corregida que el propio autor de la librería original publica (por una pelea con el repositorio oficial de paquetes, la versión arreglada no está ahí, pero sí en la web del autor) — mismo comportamiento, mismo código de la app sin tocar, sin la falla de seguridad. Verificado con la herramienta de auditoría de dependencias: antes de esto, la librería de Excel aparecía como riesgo; ahora ya no aparece.
 
 **2. Falta un tipo de foto por excluir al subir comprobantes.**
 Se aceptan todas las imágenes, incluyendo un formato (SVG) que en algunos casos puede contener código escondido. El riesgo es bajo (solo lo suben el dueño/administrador, y las fotos se muestran de una forma que normalmente neutraliza ese riesgo), pero es una corrección simple: alcanza con no aceptar ese formato en particular.
 
+✅ **Corregido.** Ahora, al subir una foto de comprobante, si el archivo es un SVG se rechaza con un mensaje claro, aunque técnicamente cuente como "imagen".
+
 **3. Faltan algunas cabeceras de seguridad estándar del sitio web** (protecciones genéricas que ofrecen los navegadores, como impedir que el sitio se cargue "escondido" dentro de otra página). No es algo urgente, pero es recomendable agregarlo antes de una puesta en producción con público real.
+
+✅ **Corregido.** Se agregaron las cabeceras estándar recomendadas: bloqueo de que el sitio se cargue dentro de otra página (clickjacking), bloqueo de que el navegador "adivine" el tipo de un archivo, una política de qué recursos puede cargar la página (solo los propios y los de la base de datos, nada de otros orígenes), y forzado de conexión segura (HTTPS). Verificado que las cabeceras efectivamente llegan en cada respuesta del sitio.
 
 No se encontraron riesgos graves de robo de datos, de acceso indebido entre distribuidoras, ni de manipulación de precios o pagos.
 
@@ -36,13 +44,21 @@ No se encontraron riesgos graves de robo de datos, de acceso indebido entre dist
 ## 2. QA / control de calidad — problemas de funcionamiento encontrados
 
 **1. La fecha impresa en la factura no siempre coincide con la fecha del pedido. (El más importante de esta sección)**
-Cuando se carga un pedido, el sistema ya distingue entre "cuándo se cargó" y "fecha del pedido" (esta última se puede editar, por ejemplo si el pedido se tomó por teléfono el día anterior). El problema: la fecha que se imprime en la factura, la que aparece en la lista de Pedidos, y el nombre del archivo PDF, en realidad siguen mostrando "cuándo se cargó" en vez de la fecha del pedido que se haya editado. Si alguien cambia la fecha de un pedido, la factura y la lista no reflejan ese cambio. Es una corrección acotada — se puede arreglar sin tocar la base de datos.
+Cuando se carga un pedido, el sistema ya distingue entre "cuándo se cargó" y "fecha del pedido" (esta última se puede editar, por ejemplo si el pedido se tomó por teléfono el día anterior). El problema: la fecha que se imprime en la factura, la que aparece en la lista de Pedidos, y el nombre del archivo PDF, en realidad seguían mostrando "cuándo se cargó" en vez de la fecha del pedido que se haya editado.
+
+✅ **Corregido** (fue lo primero que se resolvió, en una vuelta anterior a este informe). Ahora la factura, la lista y el nombre del archivo usan siempre la fecha del pedido, y de paso se aprovechó para blindar el formateo de fechas contra un problema relacionado (una fecha "simple" mostrada desde el celular podía correrse un día — ver punto 4 más abajo, que también quedó resuelto de forma general con el mismo cambio).
 
 **2. Al registrar un pago de una deuda, no hay un aviso si el monto es mayor a lo que realmente se debe.** No rompe nada, pero podría dejar un saldo "negativo" sin que nadie lo note. Sería bueno agregar un aviso (no necesariamente bloquearlo, por si el negocio quiere registrar algo así a propósito).
 
+✅ **Corregido.** Ahora, si el monto ingresado supera el saldo pendiente, aparece un cartel de confirmación antes de guardar ("¿Registrar el pago igual?") — se puede seguir registrando a propósito, solo que ya no pasa desapercibido.
+
 **3. Al cargar un cliente nuevo desde "Crear pedido", no se avisa si ya existe uno con el mismo nombre.** Un vendedor apurado podría crear el mismo cliente dos veces sin darse cuenta. No es grave, pero ensucia la lista de clientes con el tiempo.
 
-**4. Riesgo latente de fechas corridas por un día**, ya identificado y evitado en la pantalla de Estadísticas, pero que hay que tener presente si se agregan pantallas nuevas que muestren fechas: si una fecha "simple" (sin hora) se llega a mostrar desde el celular en vez de calcularse en el servidor, puede aparecer un día antes del real. Hoy no pasa en ningún lugar de la app, pero es un detalle a vigilar en el futuro.
+✅ **Corregido.** Al escribir el nombre de un cliente nuevo, si ya existe uno con ese mismo nombre aparece un aviso con un botón para usar ese cliente existente en vez de crear uno repetido.
+
+**4. Riesgo latente de fechas corridas por un día**, ya identificado y evitado en la pantalla de Estadísticas, pero que hay que tener presente si se agregan pantallas nuevas que muestren fechas: si una fecha "simple" (sin hora) se llega a mostrar desde el celular en vez de calcularse en el servidor, puede aparecer un día antes del real.
+
+✅ **Corregido de forma general** (no solo "vigilado"): la función central que formatea fechas en toda la app ahora detecta este caso puntual y lo calcula de una forma que no depende de en qué huso horario esté el celular. Cualquier pantalla nueva que la use (que son todas) queda protegida automáticamente, no hace falta acordarse caso por caso.
 
 No se encontraron errores de cálculo de precios, totales, ni de stock — esa parte se probó a fondo (incluyendo casos raros, como editar un pedido varias veces o revertir una factura) y funciona de forma consistente.
 
@@ -50,24 +66,33 @@ No se encontraron errores de cálculo de precios, totales, ni de stock — esa p
 
 ## 3. Oportunidades de optimización
 
-**1. El catálogo completo de productos se manda entero al celular en varias pantallas** (Crear pedido, Productos, Control de stock). Hoy funciona bien, pero como algunos proveedores tienen catálogos de más de mil setecientos productos, a medida que crezca más esto va a empezar a sentirse más lento en celulares de gama baja o con datos móviles limitados — tanto por el tiempo que tarda en cargar la pantalla como por el consumo de datos. La mejora recomendada a futuro es que la búsqueda de productos se resuelva directamente contra la base de datos a medida que se escribe (mostrando por ejemplo los primeros 20-30 resultados), en vez de mandar todo el catálogo de una. No es urgente, pero conviene planificarlo antes de que el catálogo más grande duplique su tamaño.
+**1. El catálogo completo de productos se manda entero al celular en varias pantallas** (Crear pedido, Productos, Control de stock). Hoy funciona bien, pero como algunos proveedores tienen catálogos de más de mil setecientos productos, a medida que crezca más esto va a empezar a sentirse más lento en celulares de gama baja o con datos móviles limitados. La mejora que se había sugerido acá era que la búsqueda de productos se resuelva directamente contra la base de datos a medida que se escribe, en vez de mandar todo el catálogo de una.
+
+⚠️ **Pendiente a propósito, no por descuido.** Después de este informe se agregó soporte para cargar pedidos sin señal en la calle (a pedido explícito, viendo que era una desventaja real contra la app anterior) — y esa función depende exactamente de tener el catálogo completo guardado en el celular de antemano, para poder buscar productos sin conexión. Cambiar la búsqueda para que dependa del servidor iría en contra directa de esa función y rompería el soporte offline. Por eso este punto queda **explícitamente en espera** hasta que el catálogo crezca lo suficiente como para que valga la pena rediseñar ambas cosas juntas (por ejemplo, guardando el catálogo completo en el celular igual, pero paginado/comprimido de otra forma). No es un punto olvidado, es una decisión.
 
 **2. Se pueden acelerar algunas búsquedas agregando un par de índices adicionales** en la base de datos (en productos y clientes, para que ordenar y filtrar por nombre sea más rápido a medida que crecen las listas). Es un cambio chico y sin riesgo.
 
+✅ **Corregido.** Se agregaron los índices en productos y clientes (por organización + nombre, que es como se ordenan y filtran casi siempre).
+
 **3. Actualizar algunas dependencias del proyecto** (además de la librería de Excel mencionada en seguridad) para aprovechar mejoras de rendimiento y evitar quedar atrasado con el tiempo.
+
+**Parcial.** La librería de Excel ya se actualizó (ver Seguridad #1). El resto de las dependencias se dejaron como están por ahora — actualizarlas en bloque sin necesidad puntual es más riesgo (romper algo que hoy funciona) que beneficio real; mejor hacerlo cuando haya una razón concreta (una función nueva que lo necesite, o una falla de seguridad puntual como la de Excel).
 
 ---
 
-## Resumen para decidir prioridades
+## Resumen — estado actual
 
-| Tema | Urgencia |
+| Tema | Estado |
 |---|---|
-| Fecha incorrecta en facturas/listado (QA #1) | Alta — afecta lo que ve el cliente final |
-| Librería de Excel con fallas conocidas (Seguridad #1) | Media — bajo riesgo práctico hoy, conviene resolverlo pronto |
-| Excluir formato SVG en fotos de comprobantes (Seguridad #2) | Baja |
-| Cabeceras de seguridad del sitio (Seguridad #3) | Baja |
-| Aviso de pago mayor a la deuda (QA #2) | Baja |
-| Aviso de cliente duplicado (QA #3) | Baja |
-| Búsqueda de productos contra servidor en vez de mandar todo el catálogo (Optimización #1) | Media, a futuro |
+| Fecha incorrecta en facturas/listado (QA #1) | ✅ Corregido |
+| Librería de Excel con fallas conocidas (Seguridad #1) | ✅ Corregido |
+| Excluir formato SVG en fotos de comprobantes (Seguridad #2) | ✅ Corregido |
+| Cabeceras de seguridad del sitio (Seguridad #3) | ✅ Corregido |
+| Aviso de pago mayor a la deuda (QA #2) | ✅ Corregido |
+| Aviso de cliente duplicado (QA #3) | ✅ Corregido |
+| Fechas corridas por huso horario (QA #4) | ✅ Corregido |
+| Índices de base de datos (Optimización #2) | ✅ Corregido |
+| Búsqueda de productos contra servidor en vez de mandar todo el catálogo (Optimización #1) | ⚠️ En espera a propósito — choca con el soporte offline que se agregó después |
+| Actualizar dependencias en general (Optimización #3) | Parcial — solo la de Excel, que era la que importaba |
 
-Si querés, puedo arrancar por la fecha de la factura (es la de mayor impacto y la más rápida de corregir) y seguir con el resto en el orden que prefieras.
+No quedan puntos débiles pendientes por resolver, salvo la búsqueda contra servidor, que se dejó en espera por una razón concreta (ver el punto correspondiente arriba).

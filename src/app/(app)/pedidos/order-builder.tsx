@@ -235,6 +235,14 @@ export function OrderBuilder({
     return clients.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 8);
   }, [clients, clientQuery]);
 
+  // Aviso de "ya existe" en el alta rapida de cliente nuevo — un vendedor
+  // apurado podia crear el mismo cliente dos veces sin darse cuenta.
+  const duplicateClientMatch = useMemo(() => {
+    const name = newClientName.trim().toLowerCase();
+    if (!name) return null;
+    return clients.find((c) => c.name.trim().toLowerCase() === name) ?? null;
+  }, [clients, newClientName]);
+
   const filteredProducts = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     if (!q) return [];
@@ -521,6 +529,26 @@ export function OrderBuilder({
               value={newClientName}
               onChange={(e) => setNewClientName(e.target.value)}
             />
+            {duplicateClientMatch ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <span>
+                  Ya existe un cliente con este nombre
+                  {duplicateClientMatch.address ? ` (${duplicateClientMatch.address})` : ""}.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClientId(duplicateClientMatch.id);
+                    setShowNewClient(false);
+                    setNewClientName("");
+                    setNewClientAddress("");
+                  }}
+                  className="shrink-0 font-semibold underline"
+                >
+                  Usar ese
+                </button>
+              </div>
+            ) : null}
             <Input
               placeholder="Direccion (opcional)"
               value={newClientAddress}
