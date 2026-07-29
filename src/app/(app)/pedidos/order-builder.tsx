@@ -77,6 +77,16 @@ function SearchBox({
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
+      {value ? (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Limpiar busqueda"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded text-neutral-400 hover:bg-paper hover:text-neutral-600"
+        >
+          <X className="h-4 w-4" aria-hidden />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -208,9 +218,12 @@ export function OrderBuilder({
 
   function addProduct(productId: string) {
     setQuantities((prev) => ({ ...prev, [productId]: (prev[productId] ?? 0) + 1 }));
-    setProductQuery("");
-    // Refocar para poder tipear el proximo codigo/nombre sin volver a tocar el campo.
-    setTimeout(() => productInputRef.current?.focus(), 0);
+    // A proposito NO se limpia la busqueda ni se saca el foco del campo: al
+    // desaparecer la lista de resultados la pagina se achicaba de golpe y
+    // el navegador saltaba para arriba para volver a mostrar el input
+    // enfocado — muy incomodo para cargar varios productos seguidos. Ahora
+    // el resultado se queda a la vista (con la cantidad ya agregada) y el
+    // vendedor puede seguir tocando otros o limpiar la busqueda a mano.
   }
 
   function submit() {
@@ -350,11 +363,12 @@ export function OrderBuilder({
           <div>
             <SearchBox value={clientQuery} onChange={setClientQuery} placeholder="Buscar cliente por nombre..." />
             {clientQuery ? (
-              <div className="mt-2 grid gap-1.5">
+              <div className="mt-2 grid max-h-[55vh] gap-1.5 overflow-y-auto">
                 {filteredClients.map((c) => (
                   <button
                     key={c.id}
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
                       setClientId(c.id);
                       setClientQuery("");
@@ -427,11 +441,16 @@ export function OrderBuilder({
         inputRef={productInputRef}
       />
       {productQuery ? (
-        <div className="mt-2 grid gap-1.5">
+        <div className="mt-2 grid max-h-[55vh] gap-1.5 overflow-y-auto">
           {filteredProducts.map((product) => (
             <button
               key={product.id}
               type="button"
+              // Evita que el boton le saque el foco al input de busqueda:
+              // si el input pierde foco se cierra el teclado del celular y
+              // la pagina "salta" al reacomodarse — con esto el teclado se
+              // queda abierto y se puede seguir tocando resultados.
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => addProduct(product.id)}
               className="flex items-center justify-between gap-3 rounded border border-line bg-white px-3 py-2.5 text-left hover:bg-paper"
             >
@@ -473,18 +492,18 @@ export function OrderBuilder({
                 key={line.product.id}
                 className="rounded border border-line bg-white px-3 py-3"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">{line.product.name}</p>
-                      {isOutOfStock(line.product) ? (
-                        <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">
-                          Sin stock
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-neutral-500">{formatCurrency(line.effectivePriceCents * line.qty)}</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium">{line.product.name}</p>
+                  {isOutOfStock(line.product) ? (
+                    <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                      Sin stock
+                    </span>
+                  ) : null}
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <p className="min-w-0 shrink-0 text-xs text-neutral-500">
+                    {formatCurrency(line.effectivePriceCents * line.qty)}
+                  </p>
                   <div className="flex shrink-0 items-center gap-2">
                     <QuantityStepper value={line.qty} onChange={(qty) => setQty(line.product.id, qty)} />
                     <button
