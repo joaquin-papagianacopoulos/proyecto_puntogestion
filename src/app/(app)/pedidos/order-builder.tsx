@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Search, UserPlus, X } from "lucide-react";
+import { RefreshCw, Search, Trash2, UserPlus, X } from "lucide-react";
 import { createOrderAction, createQuickClientAction, updateOrderAction } from "./actions";
 import { Button, Input, Label, Textarea } from "@/components/ui";
 import { QuantityStepper } from "@/components/quantity-stepper";
@@ -69,7 +69,10 @@ function SearchBox({
       <Search className="h-4 w-4 shrink-0 text-neutral-400" aria-hidden />
       <input
         ref={inputRef}
-        className="min-h-10 w-full border-0 bg-transparent p-0 text-sm outline-none"
+        // text-base (16px): por debajo de eso, Safari/iOS hace zoom
+        // automatico al enfocar — se nota mucho en esta pantalla porque es
+        // el campo que mas se toca armando un pedido.
+        className="min-h-11 w-full border-0 bg-transparent p-0 text-base outline-none sm:min-h-10 sm:text-sm"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -193,6 +196,14 @@ export function OrderBuilder({
 
   function setQty(productId: string, qty: number) {
     setQuantities((prev) => ({ ...prev, [productId]: Math.max(0, qty) }));
+  }
+
+  function removeProduct(productId: string) {
+    setQuantities((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
   }
 
   function addProduct(productId: string) {
@@ -460,7 +471,7 @@ export function OrderBuilder({
             {cartLines.map((line) => (
               <div
                 key={line.product.id}
-                className="rounded border border-line bg-white px-3 py-2.5"
+                className="rounded border border-line bg-white px-3 py-3"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -474,7 +485,17 @@ export function OrderBuilder({
                     </div>
                     <p className="text-xs text-neutral-500">{formatCurrency(line.effectivePriceCents * line.qty)}</p>
                   </div>
-                  <QuantityStepper value={line.qty} onChange={(qty) => setQty(line.product.id, qty)} />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <QuantityStepper value={line.qty} onChange={(qty) => setQty(line.product.id, qty)} />
+                    <button
+                      type="button"
+                      onClick={() => removeProduct(line.product.id)}
+                      aria-label={`Quitar ${line.product.name}`}
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded border border-line text-red-600 hover:bg-red-50 active:bg-red-100"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
                 </div>
                 {line.hasPriceMismatch ? (
                   line.confirmed ? (
@@ -517,7 +538,7 @@ export function OrderBuilder({
             <p className="text-xs text-neutral-500">{itemCount} {itemCount === 1 ? "producto" : "productos"}</p>
             <p className="text-lg font-bold">{formatCurrency(totalCents)}</p>
           </div>
-          <Button className="min-w-40" disabled={isPending} onClick={submit}>
+          <Button className="min-w-32 flex-1 sm:min-w-40 sm:flex-none" disabled={isPending} onClick={submit}>
             {isPending ? "Cargando..." : mode === "edit" ? "Guardar cambios" : "Cargar pedido"}
           </Button>
         </div>

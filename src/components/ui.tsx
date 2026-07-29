@@ -25,7 +25,7 @@ export function Button({ className, ...props }: ButtonHTMLAttributes<HTMLButtonE
   return (
     <button
       className={clsx(
-        "inline-flex min-h-10 items-center justify-center rounded bg-brand px-4 text-sm font-semibold text-white hover:bg-[#186e3d] disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex min-h-11 items-center justify-center rounded bg-brand px-4 text-base font-semibold text-white hover:bg-[#186e3d] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-10 sm:text-sm",
         className,
       )}
       {...props}
@@ -33,6 +33,11 @@ export function Button({ className, ...props }: ButtonHTMLAttributes<HTMLButtonE
   );
 }
 
+// text-base (16px) en vez de text-sm: por debajo de 16px, Safari/iOS hace
+// zoom automatico al enfocar el campo — con un catalogo de miles de
+// productos y uso mayormente en celular, esto se nota mucho en cada
+// busqueda/campo tocado. Desde sm: para arriba (desktop, sin zoom-on-focus)
+// vuelve a text-sm para no verse gigante.
 export function Input({
   ref,
   className,
@@ -42,7 +47,7 @@ export function Input({
     <input
       ref={ref}
       className={clsx(
-        "min-h-10 w-full rounded border border-line bg-white px-3 text-sm outline-none focus:border-brand",
+        "min-h-11 w-full rounded border border-line bg-white px-3 text-base outline-none focus:border-brand sm:min-h-10 sm:text-sm",
         className,
       )}
       {...props}
@@ -54,7 +59,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={clsx(
-        "w-full rounded border border-line bg-white px-3 py-2 text-sm outline-none focus:border-brand",
+        "w-full rounded border border-line bg-white px-3 py-2 text-base outline-none focus:border-brand sm:text-sm",
         className,
       )}
       {...props}
@@ -65,7 +70,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className="min-h-10 w-full rounded border border-line bg-white px-3 text-sm outline-none focus:border-brand"
+      className="min-h-11 w-full rounded border border-line bg-white px-3 text-base outline-none focus:border-brand sm:min-h-10 sm:text-sm"
       {...props}
     />
   );

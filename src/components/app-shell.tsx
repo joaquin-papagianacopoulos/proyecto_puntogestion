@@ -52,6 +52,16 @@ export function AppShell({
     setMenuOpen(false);
   }, [pathname]);
 
+  // Con el sidebar abierto en mobile, el fondo no tiene que poder
+  // scrollear — solo el propio menu (que ahora tambien scrollea
+  // internamente si la lista de items no entra en la pantalla).
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen]);
+
   const navItems = [
     { href: "/", label: "Inicio", icon: LayoutDashboard, show: hasOrg },
     { href: "/pedidos/nuevo", label: "Crear pedido", icon: PlusCircle, show: hasOrg },
@@ -91,11 +101,11 @@ export function AppShell({
 
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 -translate-x-full border-r border-line bg-white px-4 py-5 transition-transform duration-200 lg:translate-x-0 lg:bg-white/80",
+          "fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-line bg-white transition-transform duration-200 lg:translate-x-0 lg:bg-white/80",
           menuOpen && "translate-x-0",
         )}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-4 pt-5">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold">
             <Warehouse className="h-6 w-6 text-brand" aria-hidden />
             PuntoGestion
@@ -109,18 +119,22 @@ export function AppShell({
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <div className="mt-6 rounded border border-line bg-paper p-3">
+        <div className="mx-4 mt-6 shrink-0 rounded border border-line bg-paper p-3">
           <p className="text-sm font-semibold">{organizationName}</p>
           <p className="mt-1 text-xs uppercase tracking-wide text-neutral-600">{role ?? "Platform admin"}</p>
         </div>
-        <nav className="mt-6 space-y-1">
+        {/* min-h-0 es necesario para que un hijo flex con overflow-y-auto
+            pueda scrollear en vez de estirar el contenedor — sin esto, con
+            muchos items el ultimo (Configuracion) quedaba tapado/inaccesible
+            abajo del boton "Salir". */}
+        <nav className="mt-6 min-h-0 flex-1 space-y-1 overflow-y-auto px-4">
           {navItems
             .filter((item) => item.show)
             .map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex min-h-10 items-center gap-3 rounded px-3 text-sm font-medium text-neutral-700 hover:bg-paper hover:text-ink"
+                className="flex min-h-11 items-center gap-3 rounded px-3 text-sm font-medium text-neutral-700 hover:bg-paper hover:text-ink"
               >
                 <item.icon className="h-4 w-4" aria-hidden />
                 {item.label}
@@ -129,16 +143,16 @@ export function AppShell({
           {isPlatformAdmin ? (
             <Link
               href="/admin/clientes"
-              className="flex min-h-10 items-center gap-3 rounded px-3 text-sm font-medium text-neutral-700 hover:bg-paper hover:text-ink"
+              className="flex min-h-11 items-center gap-3 rounded px-3 text-sm font-medium text-neutral-700 hover:bg-paper hover:text-ink"
             >
               <ShieldCheck className="h-4 w-4" aria-hidden />
               Clientes
             </Link>
           ) : null}
         </nav>
-        <div className="absolute bottom-5 left-4 right-4">
+        <div className="shrink-0 border-t border-line px-4 py-4">
           <form action={signOutAction}>
-            <button className="flex min-h-10 w-full items-center gap-3 rounded border border-line px-3 text-sm font-medium hover:bg-paper">
+            <button className="flex min-h-11 w-full items-center gap-3 rounded border border-line px-3 text-sm font-medium hover:bg-paper">
               <LogOut className="h-4 w-4" aria-hidden />
               Salir
             </button>
