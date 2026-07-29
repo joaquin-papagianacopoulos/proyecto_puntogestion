@@ -46,7 +46,7 @@ export default async function DeudasPage({
     <>
       <PageHeader title="Deudas" subtitle="Lo que nos deben los clientes y lo que le debemos a otros." />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {DIRECTIONS.map((d) => (
           <Link
             key={d}

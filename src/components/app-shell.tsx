@@ -24,18 +24,22 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { signOutAction } from "@/app/(auth)/login/actions";
+import { ConnectivityIndicator } from "@/components/connectivity-indicator";
+import { OfflineSyncProvider } from "@/components/offline-sync-provider";
 import { CAPABILITIES, hasCapability } from "@/lib/permissions";
 import type { MemberRole } from "@/types/database";
 
 export function AppShell({
   children,
   organizationName,
+  organizationId,
   role,
   isPlatformAdmin,
   permissions,
 }: {
   children: ReactNode;
   organizationName: string;
+  organizationId: string | null;
   role: MemberRole | null;
   isPlatformAdmin: boolean;
   permissions: string[];
@@ -78,6 +82,7 @@ export function AppShell({
   ];
 
   return (
+    <OfflineSyncProvider organizationId={organizationId}>
     <div className="min-h-screen bg-paper text-ink">
       <header className="flex items-center justify-between border-b border-line bg-white/80 px-4 py-3 lg:hidden">
         <button
@@ -88,11 +93,13 @@ export function AppShell({
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold">
-          <Warehouse className="h-5 w-5 text-brand" aria-hidden />
-          PuntoGestion
+        <Link href="/" className="flex min-w-0 items-center gap-2 text-lg font-bold">
+          <Warehouse className="h-5 w-5 shrink-0 text-brand" aria-hidden />
+          <span className="truncate">PuntoGestion</span>
         </Link>
-        <span className="w-10" />
+        <div className="shrink-0">
+          <ConnectivityIndicator />
+        </div>
       </header>
 
       {menuOpen ? (
@@ -122,6 +129,11 @@ export function AppShell({
         <div className="mx-4 mt-6 shrink-0 rounded border border-line bg-paper p-3">
           <p className="text-sm font-semibold">{organizationName}</p>
           <p className="mt-1 text-xs uppercase tracking-wide text-neutral-600">{role ?? "Platform admin"}</p>
+          {organizationId ? (
+            <div className="mt-2 border-t border-line pt-2">
+              <ConnectivityIndicator />
+            </div>
+          ) : null}
         </div>
         {/* min-h-0 es necesario para que un hijo flex con overflow-y-auto
             pueda scrollear en vez de estirar el contenedor — sin esto, con
@@ -163,5 +175,6 @@ export function AppShell({
         <div className="mx-auto min-h-screen w-full max-w-7xl px-4 py-5 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>
+    </OfflineSyncProvider>
   );
 }

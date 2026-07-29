@@ -64,8 +64,8 @@ export default async function DeudaDetailPage({ params }: { params: Promise<{ id
       <div className="grid gap-3">
         <Panel>
           <div className="flex items-start justify-between gap-3">
-            <div>
-              {debt.description ? <p className="text-sm text-neutral-600">{debt.description}</p> : null}
+            <div className="min-w-0">
+              {debt.description ? <p className="text-sm text-neutral-600 break-words">{debt.description}</p> : null}
               {debt.due_date ? (
                 <p className="mt-1 text-xs text-neutral-500">Vence: {formatDate(debt.due_date)}</p>
               ) : null}
@@ -124,7 +124,7 @@ export default async function DeudaDetailPage({ params }: { params: Promise<{ id
           ) : (
             <p className="mb-3 text-sm text-neutral-500">Todavia no hay fotos.</p>
           )}
-          <form action={uploadDebtPhotoAction} className="flex items-center gap-2">
+          <form action={uploadDebtPhotoAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <input type="hidden" name="debt_id" value={debt.id} />
             <input
               type="file"
@@ -132,7 +132,7 @@ export default async function DeudaDetailPage({ params }: { params: Promise<{ id
               accept="image/*"
               capture="environment"
               required
-              className="text-sm"
+              className="min-w-0 max-w-full text-sm file:mr-2 file:rounded file:border-0 file:bg-paper file:px-3 file:py-2 file:text-sm file:font-semibold"
             />
             <Button type="submit" className="shrink-0 gap-2">
               <Camera className="h-4 w-4" aria-hidden />

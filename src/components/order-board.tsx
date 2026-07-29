@@ -148,7 +148,7 @@ export function OrderBoard({
                 <Select
                   value={driverChoice}
                   onChange={(e) => setDriverChoice(e.target.value)}
-                  className="min-h-10 w-40"
+                  className="w-36 sm:w-40"
                 >
                   <option value="">Repartidor...</option>
                   {drivers.map((d) => (
@@ -218,7 +218,7 @@ export function OrderBoard({
                     <p className="truncate text-sm font-medium">{order.clientName}</p>
                   </div>
                   <p className="mt-1 text-xs text-neutral-500">
-                    {order.vendedorName} · {formatDate(order.createdAt)}
+                    {order.vendedorName} · {formatDate(order.orderDate)}
                     {order.driverName ? ` · ${order.driverName}` : ""}
                   </p>
                   {order.note ? (

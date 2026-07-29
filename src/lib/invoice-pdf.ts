@@ -11,7 +11,10 @@ export type InvoiceOrder = {
   orderNumber: number;
   clientName: string;
   vendedorName: string;
-  createdAt: string;
+  // Fecha del pedido (order_date, editable) — NO el momento tecnico en que
+  // se cargo (created_at). Es la que tiene que aparecer impresa: si alguien
+  // edita la fecha de un pedido, la factura tiene que reflejar ese cambio.
+  orderDate: string;
   totalCents: number;
   driverName?: string | null;
   note?: string | null;
@@ -22,8 +25,7 @@ function pad6(n: number) {
 }
 
 export function invoiceFilename(order: InvoiceOrder) {
-  const fecha = order.createdAt.slice(0, 10);
-  return `factura_${pad6(order.orderNumber)}_${fecha}.pdf`;
+  return `factura_${pad6(order.orderNumber)}_${order.orderDate}.pdf`;
 }
 
 export async function buildInvoiceBlob({
@@ -53,7 +55,7 @@ export async function buildInvoiceBlob({
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  doc.text(`Fecha: ${formatDate(order.createdAt)}`, 150, 10);
+  doc.text(`Fecha: ${formatDate(order.orderDate)}`, 150, 10);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);

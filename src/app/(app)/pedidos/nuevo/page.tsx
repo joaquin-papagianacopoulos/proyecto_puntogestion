@@ -29,7 +29,7 @@ export default async function NuevoPedidoPage() {
   return (
     <>
       <PageHeader title="Nuevo pedido" />
-      <OrderBuilder mode="create" products={products} clients={clients ?? []} />
+      <OrderBuilder mode="create" organizationId={organization.id} products={products} clients={clients ?? []} />
     </>
   );
 }

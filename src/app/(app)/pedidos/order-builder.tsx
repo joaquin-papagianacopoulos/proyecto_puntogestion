@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, Search, Trash2, UserPlus, X } from "lucide-react";
+import { CloudUpload, RefreshCw, Search, Trash2, UserPlus, X } from "lucide-react";
 import { createOrderAction, createQuickClientAction, updateOrderAction } from "./actions";
 import { Button, Input, Label, Textarea } from "@/components/ui";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { Toast } from "@/components/toast";
+import { useOfflineSync } from "@/components/offline-sync-provider";
 import { formatCurrency, todayDateString } from "@/lib/format";
 import { isOutOfStock } from "@/lib/stock";
+import { loadCatalogSnapshot, saveCatalogSnapshot } from "@/lib/offline/catalog-cache";
+import {
+  listPendingClients,
+  listPendingOrders,
+  queuePendingClient,
+  queuePendingOrder,
+} from "@/lib/offline/pending-queue";
+import type { PendingClient, PendingOrder, PendingOrderItem } from "@/lib/offline/types";
 
 type Product = {
   id: string;
@@ -92,10 +101,11 @@ function SearchBox({
 }
 
 export function OrderBuilder({
-  products,
-  clients,
+  products: productsProp,
+  clients: clientsProp,
   mode,
   orderId,
+  organizationId,
   initialClientId,
   initialOrderDate,
   initialQuantities,
@@ -107,6 +117,9 @@ export function OrderBuilder({
   clients: Client[];
   mode: "create" | "edit";
   orderId?: string;
+  // Solo hace falta en modo "create": es lo que permite guardar/leer el
+  // catalogo y la cola de pedidos sin conexion en IndexedDB.
+  organizationId?: string;
   initialClientId?: string;
   initialOrderDate?: string;
   initialQuantities?: Record<string, number>;
@@ -115,6 +128,11 @@ export function OrderBuilder({
   initialShowNoteOnInvoice?: boolean;
 }) {
   const router = useRouter();
+  const { refreshPendingCount, syncNow } = useOfflineSync();
+  const [products, setProducts] = useState(productsProp);
+  const [clients, setClients] = useState(clientsProp);
+  const [pendingOrdersList, setPendingOrdersList] = useState<PendingOrder[]>([]);
+  const [pendingClientsList, setPendingClientsList] = useState<PendingClient[]>([]);
   const [clientId, setClientId] = useState(initialClientId ?? "");
   const [clientQuery, setClientQuery] = useState("");
   const [showNewClient, setShowNewClient] = useState(false);
@@ -163,6 +181,51 @@ export function OrderBuilder({
     };
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   }, [mode, clientId, showNewClient, newClientName, newClientAddress, quantities, note, showNoteOnInvoice]);
+
+  // Si la pantalla cargo con datos (hubo señal), son la fuente de verdad y
+  // de paso quedan guardados localmente para la proxima vez que no la haya.
+  // Si llegaron vacios y el celular esta sin señal, se usa la ultima foto
+  // guardada — best effort, no siempre se puede distinguir un catalogo
+  // realmente vacio de uno que no se pudo pedir.
+  useEffect(() => {
+    if (mode !== "create" || !organizationId) return;
+    if (productsProp.length > 0) {
+      saveCatalogSnapshot(organizationId, productsProp, clientsProp).catch(() => {});
+      return;
+    }
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      loadCatalogSnapshot(organizationId)
+        .then((snapshot) => {
+          if (snapshot.products.length > 0) {
+            setProducts(snapshot.products);
+            setClients(snapshot.clients);
+          }
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [organizationId, productsProp, clientsProp]);
+
+  const refreshLocalPending = useCallback(() => {
+    if (!organizationId) return;
+    Promise.all([listPendingOrders(organizationId), listPendingClients(organizationId)])
+      .then(([orders, pendingClients]) => {
+        setPendingOrdersList(orders);
+        setPendingClientsList(pendingClients);
+      })
+      .catch(() => {});
+  }, [organizationId]);
+
+  // Poll simple: si la sincronizacion global (montada en AppShell, sigue
+  // corriendo aunque el vendedor navegue a otra pantalla) sube algo mientras
+  // esta pantalla esta abierta, esto lo refleja sin necesidad de un canal
+  // de eventos aparte.
+  useEffect(() => {
+    if (mode !== "create") return;
+    refreshLocalPending();
+    const interval = setInterval(refreshLocalPending, 3000);
+    return () => clearInterval(interval);
+  }, [mode, refreshLocalPending]);
 
   const selectedClient = clients.find((c) => c.id === clientId);
 
@@ -269,54 +332,170 @@ export function OrderBuilder({
           return;
         }
 
-        let finalClientId = clientId;
-
-        if (showNewClient) {
-          if (!newClientName.trim()) {
-            setError("Ingresa el nombre del cliente nuevo.");
-            return;
-          }
-          const created = await createQuickClientAction({ name: newClientName, address: newClientAddress });
-          if ("error" in created) {
-            setError(created.error ?? "No se pudo crear el cliente.");
-            return;
-          }
-          finalClientId = created.id ?? "";
-        }
-
-        if (!finalClientId) {
-          setError("Elegi un cliente.");
+        // Sin señal: ni se intenta la red, se guarda directo en la cola
+        // local para no perder tiempo esperando un timeout.
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          await queueOfflineOrder(items);
           return;
         }
 
-        const result = await createOrderAction({ clientId: finalClientId, items, note, showNoteOnInvoice });
-        if (result && "error" in result) {
-          setError(result.error ?? "No se pudo crear el pedido.");
-          return;
-        }
+        try {
+          let finalClientId = clientId;
 
-        // Limpiar todo para poder seguir cargando el proximo pedido sin
-        // tocar nada mas, en vez de navegar afuera de la pantalla. El
-        // borrador solo se descarta aca, al cargar con exito.
-        clearDraft();
-        setClientId("");
-        setClientQuery("");
-        setShowNewClient(false);
-        setNewClientName("");
-        setNewClientAddress("");
-        setProductQuery("");
-        setQuantities({});
-        setNote("");
-        setShowNoteOnInvoice(false);
-        setToastMessage("Pedido cargado con éxito");
+          if (showNewClient) {
+            if (!newClientName.trim()) {
+              setError("Ingresa el nombre del cliente nuevo.");
+              return;
+            }
+            const created = await createQuickClientAction({ name: newClientName, address: newClientAddress });
+            if ("error" in created) {
+              setError(created.error ?? "No se pudo crear el cliente.");
+              return;
+            }
+            finalClientId = created.id ?? "";
+          }
+
+          if (!finalClientId) {
+            setError("Elegi un cliente.");
+            return;
+          }
+
+          const result = await createOrderAction({ clientId: finalClientId, items, note, showNoteOnInvoice });
+          if (result && "error" in result) {
+            setError(result.error ?? "No se pudo crear el pedido.");
+            return;
+          }
+
+          // Limpiar todo para poder seguir cargando el proximo pedido sin
+          // tocar nada mas, en vez de navegar afuera de la pantalla. El
+          // borrador solo se descarta aca, al cargar con exito.
+          clearDraft();
+          setClientId("");
+          setClientQuery("");
+          setShowNewClient(false);
+          setNewClientName("");
+          setNewClientAddress("");
+          setProductQuery("");
+          setQuantities({});
+          setNote("");
+          setShowNoteOnInvoice(false);
+          setToastMessage("Pedido cargado con éxito");
+        } catch {
+          // La señal se corto a mitad de camino (navigator.onLine todavia
+          // no se habia enterado) — se guarda local en vez de perder el
+          // pedido que el vendedor ya armo.
+          await queueOfflineOrder(items);
+        }
       } finally {
         submittingRef.current = false;
       }
     });
   }
 
+  async function queueOfflineOrder(items: PendingOrderItem[]) {
+    if (!organizationId) {
+      setError("No se pudo guardar el pedido sin conexion.");
+      return;
+    }
+
+    let pendingClientLocalId: string | null = null;
+    let resolvedClientId: string | null = clientId || null;
+
+    if (showNewClient) {
+      if (!newClientName.trim()) {
+        setError("Ingresa el nombre del cliente nuevo.");
+        return;
+      }
+      pendingClientLocalId = crypto.randomUUID();
+      await queuePendingClient({
+        localId: pendingClientLocalId,
+        organizationId,
+        name: newClientName.trim(),
+        address: newClientAddress.trim(),
+        createdAt: Date.now(),
+      });
+      resolvedClientId = null;
+    } else if (!resolvedClientId) {
+      setError("Elegi un cliente.");
+      return;
+    }
+
+    await queuePendingOrder({
+      localId: crypto.randomUUID(),
+      organizationId,
+      clientId: resolvedClientId,
+      pendingClientLocalId,
+      items,
+      note,
+      showNoteOnInvoice,
+      createdAt: Date.now(),
+    });
+
+    clearDraft();
+    setClientId("");
+    setClientQuery("");
+    setShowNewClient(false);
+    setNewClientName("");
+    setNewClientAddress("");
+    setProductQuery("");
+    setQuantities({});
+    setNote("");
+    setShowNoteOnInvoice(false);
+    setToastMessage("Sin conexion: el pedido quedo guardado y se va a subir solo");
+    refreshLocalPending();
+    refreshPendingCount();
+  }
+
   return (
     <div className="pb-28">
+      {mode === "create" && (pendingOrdersList.length > 0 || pendingClientsList.length > 0) ? (
+        <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-amber-800">Pedidos por subir (sin conexion)</p>
+            <button
+              type="button"
+              onClick={() => syncNow()}
+              className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-white px-2 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100"
+            >
+              <CloudUpload className="h-3.5 w-3.5" aria-hidden />
+              Reintentar
+            </button>
+          </div>
+          <div className="grid gap-2">
+            {pendingClientsList.map((c) => (
+              <div key={c.localId} className="rounded border border-amber-200 bg-white px-3 py-2 text-xs">
+                <p className="font-medium">Cliente nuevo: {c.name}</p>
+                <p className="mt-0.5 text-amber-700">
+                  {c.status === "error" ? c.errorMessage ?? "Error al subir" : c.status === "syncing" ? "Subiendo..." : "Pendiente de subir"}
+                </p>
+              </div>
+            ))}
+            {pendingOrdersList.map((o) => {
+              const clientName = o.clientId
+                ? (clients.find((c) => c.id === o.clientId)?.name ?? "Cliente")
+                : (pendingClientsList.find((c) => c.localId === o.pendingClientLocalId)?.name ?? "Cliente nuevo");
+              const orderItemCount = o.items.reduce((sum, i) => sum + i.quantity, 0);
+              return (
+                <div
+                  key={o.localId}
+                  className="flex items-center justify-between gap-2 rounded border border-amber-200 bg-white px-3 py-2 text-xs"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{clientName}</p>
+                    <p className="text-neutral-500">
+                      {orderItemCount} {orderItemCount === 1 ? "producto" : "productos"}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-semibold text-amber-700">
+                    {o.status === "error" ? "Error" : o.status === "syncing" ? "Subiendo..." : "Pendiente"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-4">
         <Label>Cliente</Label>
         {selectedClient ? (
@@ -434,12 +613,19 @@ export function OrderBuilder({
       </div>
 
       <Label>Productos</Label>
-      <SearchBox
-        value={productQuery}
-        onChange={setProductQuery}
-        placeholder="Buscar producto por nombre o codigo..."
-        inputRef={productInputRef}
-      />
+      {mode === "create" && products.length === 0 ? (
+        <p className="mt-1 rounded border border-line bg-paper px-3 py-2.5 text-xs text-neutral-500">
+          No hay catalogo disponible sin conexion todavia — abri esta pantalla una vez con señal para poder cargar
+          pedidos offline.
+        </p>
+      ) : (
+        <SearchBox
+          value={productQuery}
+          onChange={setProductQuery}
+          placeholder="Buscar producto por nombre o codigo..."
+          inputRef={productInputRef}
+        />
+      )}
       {productQuery ? (
         <div className="mt-2 grid max-h-[55vh] gap-1.5 overflow-y-auto">
           {filteredProducts.map((product) => (

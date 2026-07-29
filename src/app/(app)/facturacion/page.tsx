@@ -25,7 +25,7 @@ export default async function FacturacionPage({
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, status, total_cents, created_at, note, vendedor_membership_id, driver_id, clients(id, name), drivers(full_name)",
+      "id, order_number, status, total_cents, order_date, note, vendedor_membership_id, driver_id, clients(id, name), drivers(full_name)",
     )
     .eq("organization_id", organization.id)
     .eq("order_date", fecha)
@@ -112,7 +112,7 @@ export default async function FacturacionPage({
     orderNumber: order.order_number,
     status: order.status,
     totalCents: order.total_cents,
-    createdAt: order.created_at,
+    orderDate: order.order_date,
     clientId: order.clients?.id ?? "",
     clientName: order.clients?.name ?? "Cliente",
     vendedorName: vendorNames.get(order.vendedor_membership_id) ?? "Vendedor",
@@ -141,7 +141,7 @@ export default async function FacturacionPage({
         </Button>
       </form>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {ESTADOS.map((e) => (
           <Link
             key={e}

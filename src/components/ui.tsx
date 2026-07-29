@@ -67,10 +67,13 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   );
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className="min-h-11 w-full rounded border border-line bg-white px-3 text-base outline-none focus:border-brand sm:min-h-10 sm:text-sm"
+      className={clsx(
+        "min-h-11 w-full rounded border border-line bg-white px-3 text-base outline-none focus:border-brand sm:min-h-10 sm:text-sm",
+        className,
+      )}
       {...props}
     />
   );

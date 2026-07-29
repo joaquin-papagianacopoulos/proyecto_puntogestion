@@ -53,12 +53,12 @@ export function DebtForm({ clients }: { clients: Client[] }) {
           <Label>Cliente</Label>
           {selectedClient ? (
             <div className="mt-1 flex items-center justify-between rounded border border-line bg-white px-3 py-2.5">
-              <p className="text-sm font-medium">{selectedClient.name}</p>
+              <p className="min-w-0 truncate text-sm font-medium">{selectedClient.name}</p>
               <button
                 type="button"
                 onClick={() => setClientId("")}
                 aria-label="Cambiar cliente"
-                className="grid h-9 w-9 place-items-center rounded text-neutral-500 hover:bg-paper"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded text-neutral-500 hover:bg-paper"
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
@@ -68,18 +68,19 @@ export function DebtForm({ clients }: { clients: Client[] }) {
               <div className="mt-1 flex items-center gap-2 rounded border border-line bg-white px-3 focus-within:border-brand">
                 <Search className="h-4 w-4 shrink-0 text-neutral-400" aria-hidden />
                 <input
-                  className="min-h-10 w-full border-0 bg-transparent p-0 text-sm outline-none"
+                  className="min-h-11 w-full border-0 bg-transparent p-0 text-base outline-none sm:min-h-10 sm:text-sm"
                   placeholder="Buscar cliente por nombre..."
                   value={clientQuery}
                   onChange={(e) => setClientQuery(e.target.value)}
                 />
               </div>
               {clientQuery ? (
-                <div className="mt-2 grid gap-1.5">
+                <div className="mt-2 grid max-h-[55vh] gap-1.5 overflow-y-auto">
                   {filteredClients.map((c) => (
                     <button
                       key={c.id}
                       type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
                         setClientId(c.id);
                         setClientQuery("");

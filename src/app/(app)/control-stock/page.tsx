@@ -61,7 +61,7 @@ export default async function ControlStockPage({
 
       <Panel className="mb-4">
         <p className="mb-3 text-sm font-semibold">Umbrales por defecto</p>
-        <form action={updateStockThresholdsAction} className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <form action={updateStockThresholdsAction} className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end [&>button]:col-span-2 sm:[&>button]:col-span-1">
           <Label>
             Stock bajo (menos de)
             <Input

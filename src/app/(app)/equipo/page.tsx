@@ -124,9 +124,9 @@ export default async function EquipoPage({
         {members.map((member) => (
           <Panel key={member.membershipId}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium">{member.displayName}</p>
-                <p className="text-xs text-neutral-500">{member.email}</p>
+                <p className="break-all text-xs text-neutral-500">{member.email}</p>
                 <p className="mt-0.5 text-xs uppercase tracking-wide text-neutral-500">{ROLE_LABELS[member.role]}</p>
               </div>
               {member.role !== "owner" && (currentMembership.role === "owner" || member.role !== "admin") ? (
