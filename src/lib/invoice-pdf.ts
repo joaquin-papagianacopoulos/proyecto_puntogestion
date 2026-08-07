@@ -7,6 +7,21 @@ export type InvoiceItem = {
   subtotalCents: number;
 };
 
+// Datos del comprobante autorizado por ARCA. Cuando estan presentes, la
+// boleta pasa a imprimirse como Factura A/B/C real (con CAE y QR) en vez de
+// un simple comprobante interno.
+export type InvoiceArcaData = {
+  cae: string;
+  caeVencimiento: string;
+  comprobanteTipo: number;
+  comprobanteNumero: number;
+  puntoVenta: number;
+  cuit: string;
+  docTipo: number;
+  docNro: number;
+  fecha: string;
+};
+
 export type InvoiceOrder = {
   orderNumber: number;
   clientName: string;
@@ -18,7 +33,32 @@ export type InvoiceOrder = {
   totalCents: number;
   driverName?: string | null;
   note?: string | null;
+  arca?: InvoiceArcaData | null;
 };
+
+const CBTE_TIPO_LABEL: Record<number, string> = { 1: "A", 6: "B", 11: "C" };
+
+function buildArcaQrDataUrl(order: InvoiceOrder, arca: InvoiceArcaData) {
+  const payload = {
+    ver: 1,
+    fecha: arca.fecha,
+    cuit: Number(arca.cuit),
+    ptoVta: arca.puntoVenta,
+    tipoCmp: arca.comprobanteTipo,
+    nroCmp: arca.comprobanteNumero,
+    importe: order.totalCents / 100,
+    moneda: "PES",
+    ctz: 1,
+    tipoDocRec: arca.docTipo,
+    nroDocRec: arca.docNro,
+    tipoCodAut: "E",
+    codAut: Number(arca.cae),
+  };
+  const base64Payload = btoa(JSON.stringify(payload));
+  const qrUrl = `https://www.afip.gob.ar/fe/qr/?p=${base64Payload}`;
+
+  return import("qrcode").then((QRCode) => QRCode.toDataURL(qrUrl, { margin: 1, width: 200 }));
+}
 
 function pad6(n: number) {
   return String(n).padStart(6, "0");
@@ -51,7 +91,16 @@ export async function buildInvoiceBlob({
   doc.text(organizationName.toUpperCase(), 14, 9);
 
   doc.setFontSize(7);
-  doc.text(`BOLETA N° ${pad6(order.orderNumber)}`, 14, 13);
+  if (order.arca) {
+    const letra = CBTE_TIPO_LABEL[order.arca.comprobanteTipo] ?? "";
+    doc.text(
+      `FACTURA ${letra} N° ${String(order.arca.puntoVenta).padStart(4, "0")}-${String(order.arca.comprobanteNumero).padStart(8, "0")}`,
+      14,
+      13,
+    );
+  } else {
+    doc.text(`BOLETA N° ${pad6(order.orderNumber)}`, 14, 13);
+  }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
@@ -126,6 +175,19 @@ export async function buildInvoiceBlob({
     doc.setFontSize(11);
     doc.text("TOTAL:", 150, finalY + 6);
     doc.text(formatCurrency(order.totalCents), 195, finalY + 6, { align: "right" });
+  }
+
+  if (order.arca) {
+    const arcaY = (previousDebtCents > 0 ? finalY + 17 : finalY + 6) + 8;
+    const qrDataUrl = await buildArcaQrDataUrl(order, order.arca);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`CUIT: ${order.arca.cuit}`, 14, arcaY);
+    doc.text(`CAE: ${order.arca.cae}`, 14, arcaY + 4);
+    doc.text(`Vto. CAE: ${formatDate(order.arca.caeVencimiento)}`, 14, arcaY + 8);
+
+    doc.addImage(qrDataUrl, "PNG", 170, arcaY - 5, 25, 25);
   }
 
   // Linea de corte + recap

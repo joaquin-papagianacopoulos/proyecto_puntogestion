@@ -13,13 +13,29 @@ export async function toggleOrganizationActiveAction(formData: FormData) {
 
   const organizationId = String(formData.get("organization_id") ?? "");
   const isActive = formData.get("is_active") === "on";
+  const hasArca = formData.get("arca_invoicing") === "on";
 
   if (!organizationId) {
     redirectWithError(CLIENTS_PATH, "Comercio invalido.");
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("organizations").update({ is_active: isActive }).eq("id", organizationId);
+
+  const { data: organization } = await supabase
+    .from("organizations")
+    .select("enabled_features")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  const currentFeatures = organization?.enabled_features ?? [];
+  const enabledFeatures = hasArca
+    ? [...new Set([...currentFeatures, "arca_invoicing"])]
+    : currentFeatures.filter((feature) => feature !== "arca_invoicing");
+
+  const { error } = await supabase
+    .from("organizations")
+    .update({ is_active: isActive, enabled_features: enabledFeatures })
+    .eq("id", organizationId);
 
   if (error) {
     redirectWithError(CLIENTS_PATH, "No se pudo actualizar el cliente.");

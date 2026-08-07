@@ -26,6 +26,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { signOutAction } from "@/app/(auth)/login/actions";
 import { ConnectivityIndicator } from "@/components/connectivity-indicator";
 import { OfflineSyncProvider } from "@/components/offline-sync-provider";
+import { OrgDataProvider } from "@/components/org-data-provider";
 import { CAPABILITIES, hasCapability } from "@/lib/permissions";
 import type { MemberRole } from "@/types/database";
 
@@ -82,6 +83,7 @@ export function AppShell({
   ];
 
   return (
+    <OrgDataProvider organizationId={organizationId}>
     <OfflineSyncProvider organizationId={organizationId}>
     <div className="min-h-screen bg-paper text-ink">
       <header className="flex items-center justify-between border-b border-line bg-white/80 px-4 py-3 lg:hidden">
@@ -176,5 +178,6 @@ export function AppShell({
       </main>
     </div>
     </OfflineSyncProvider>
+    </OrgDataProvider>
   );
 }

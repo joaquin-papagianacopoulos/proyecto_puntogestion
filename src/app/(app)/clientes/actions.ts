@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { isOrgManager, requireSession } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { redirectWithError } from "@/lib/action-errors";
+import type { ClientIvaCondition } from "@/types/database";
 
 const CLIENTS_PATH = "/clientes";
+const IVA_CONDITIONS = ["responsable_inscripto", "monotributo", "exento", "consumidor_final"] as const;
 
 export async function createClientMemberAction(formData: FormData) {
   const { organization } = await requireSession();
@@ -45,10 +47,15 @@ export async function updateClientAction(formData: FormData) {
   const address = String(formData.get("address") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const taxId = String(formData.get("tax_id") ?? "").trim();
+  const ivaConditionRaw = String(formData.get("iva_condition") ?? "").trim();
   const isActive = formData.get("is_active") === "on";
 
   if (!clientId || name.length < 1 || name.length > 160) {
     redirectWithError(CLIENTS_PATH, "Datos invalidos.");
+  }
+  if (ivaConditionRaw && !IVA_CONDITIONS.includes(ivaConditionRaw as ClientIvaCondition)) {
+    redirectWithError(CLIENTS_PATH, "Condicion de IVA invalida.");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -59,6 +66,8 @@ export async function updateClientAction(formData: FormData) {
       address: address || null,
       phone: phone || null,
       notes: notes || null,
+      tax_id: taxId || null,
+      iva_condition: (ivaConditionRaw || null) as ClientIvaCondition | null,
       is_active: isActive,
     })
     .eq("id", clientId)

@@ -3,6 +3,9 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type MemberRole = "owner" | "admin" | "vendedor";
 export type OrderStatus = "pendiente" | "facturado";
 export type DebtDirection = "nos_deben" | "debemos";
+export type ClientIvaCondition = "responsable_inscripto" | "monotributo" | "exento" | "consumidor_final";
+export type ArcaCondicionFiscal = "monotributo" | "responsable_inscripto";
+export type ArcaEnvironment = "homologacion" | "produccion";
 
 export type OrderItemInput = { product_id: string; quantity: number };
 
@@ -154,6 +157,8 @@ export type Database = {
           address: string | null;
           phone: string | null;
           notes: string | null;
+          tax_id: string | null;
+          iva_condition: ClientIvaCondition | null;
           is_active: boolean;
           created_at: string;
         };
@@ -163,6 +168,8 @@ export type Database = {
           address?: string | null;
           phone?: string | null;
           notes?: string | null;
+          tax_id?: string | null;
+          iva_condition?: ClientIvaCondition | null;
           is_active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["clients"]["Insert"]>;
@@ -181,6 +188,15 @@ export type Database = {
           order_date: string;
           note: string | null;
           show_note_on_invoice: boolean;
+          arca_cae: string | null;
+          arca_cae_vencimiento: string | null;
+          arca_comprobante_tipo: number | null;
+          arca_comprobante_numero: number | null;
+          arca_punto_venta: number | null;
+          arca_cuit: string | null;
+          arca_doc_tipo: number | null;
+          arca_doc_nro: number | null;
+          arca_invoiced_at: string | null;
           created_at: string;
           updated_at: string;
           invoiced_at: string | null;
@@ -195,6 +211,15 @@ export type Database = {
           order_date?: string;
           note?: string | null;
           show_note_on_invoice?: boolean;
+          arca_cae?: string | null;
+          arca_cae_vencimiento?: string | null;
+          arca_comprobante_tipo?: number | null;
+          arca_comprobante_numero?: number | null;
+          arca_punto_venta?: number | null;
+          arca_cuit?: string | null;
+          arca_doc_tipo?: number | null;
+          arca_doc_nro?: number | null;
+          arca_invoiced_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["orders"]["Insert"]>;
         Relationships: [
@@ -348,6 +373,37 @@ export type Database = {
           },
         ];
       };
+      organization_arca_config: {
+        Row: {
+          organization_id: string;
+          cuit: string | null;
+          condicion_fiscal: ArcaCondicionFiscal | null;
+          punto_venta: number | null;
+          environment: ArcaEnvironment;
+          cert: string | null;
+          private_key: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          organization_id: string;
+          cuit?: string | null;
+          condicion_fiscal?: ArcaCondicionFiscal | null;
+          punto_venta?: number | null;
+          environment?: ArcaEnvironment;
+          cert?: string | null;
+          private_key?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["organization_arca_config"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "organization_arca_config_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -408,6 +464,33 @@ export type Database = {
       };
       assign_driver_to_orders: {
         Args: { p_organization_id: string; p_order_ids: string[]; p_driver_id: string | null };
+        Returns: void;
+      };
+      update_organization_arca_config: {
+        Args: {
+          p_organization_id: string;
+          p_cuit: string | null;
+          p_condicion_fiscal: ArcaCondicionFiscal | null;
+          p_punto_venta: number | null;
+          p_environment: ArcaEnvironment;
+          p_cert: string | null;
+          p_private_key: string | null;
+        };
+        Returns: void;
+      };
+      save_order_arca_invoice: {
+        Args: {
+          p_organization_id: string;
+          p_order_id: string;
+          p_cae: string;
+          p_cae_vencimiento: string;
+          p_comprobante_tipo: number;
+          p_comprobante_numero: number;
+          p_punto_venta: number;
+          p_cuit: string;
+          p_doc_tipo: number;
+          p_doc_nro: number;
+        };
         Returns: void;
       };
     };

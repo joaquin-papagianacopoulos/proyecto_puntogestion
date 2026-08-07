@@ -7,6 +7,7 @@ const clientSchema = z.object({
 
 const serverSchema = clientSchema.extend({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+  AFIPSDK_ACCESS_TOKEN: z.string().min(1).optional(),
 });
 
 export function getClientEnv() {
@@ -21,5 +22,6 @@ export function getServerEnv() {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    AFIPSDK_ACCESS_TOKEN: process.env.AFIPSDK_ACCESS_TOKEN,
   });
 }

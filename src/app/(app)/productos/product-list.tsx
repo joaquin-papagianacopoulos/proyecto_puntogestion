@@ -5,24 +5,13 @@ import { Save, Search } from "lucide-react";
 import { updateProductAction } from "./actions";
 import { PriceMarginFields } from "./price-margin-fields";
 import { Button, Input, Label, Panel } from "@/components/ui";
+import { RefreshOrgDataOnSubmit, useOrgData } from "@/components/org-data-provider";
 import { formatCurrency } from "@/lib/format";
 import { isOutOfStock } from "@/lib/stock";
 
-type Product = {
-  id: string;
-  name: string;
-  sku: string | null;
-  price_cents: number;
-  cost_cents: number | null;
-  unit: string | null;
-  category: string | null;
-  is_active: boolean;
-  in_stock: boolean;
-  stock_quantity: number | null;
-  low_stock_threshold: number | null;
-};
-
-export function ProductList({ products }: { products: Product[] }) {
+export function ProductList() {
+  const { data, isLoading } = useOrgData();
+  const products = data.products;
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -81,6 +70,7 @@ export function ProductList({ products }: { products: Product[] }) {
           return (
             <Panel key={product.id}>
               <form action={updateProductAction} className="grid gap-3">
+                <RefreshOrgDataOnSubmit />
                 <input type="hidden" name="product_id" value={product.id} />
                 <Label>
                   Nombre
@@ -164,7 +154,7 @@ export function ProductList({ products }: { products: Product[] }) {
         })}
         {filtered.length === 0 ? (
           <p className="text-sm text-neutral-500">
-            {products.length === 0 ? "Todavia no hay productos." : "Sin resultados."}
+            {isLoading ? "Cargando..." : products.length === 0 ? "Todavia no hay productos." : "Sin resultados."}
           </p>
         ) : null}
       </div>

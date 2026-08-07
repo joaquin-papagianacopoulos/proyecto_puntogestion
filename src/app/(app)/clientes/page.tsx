@@ -2,23 +2,20 @@ import { Plus } from "lucide-react";
 import { createClientMemberAction } from "./actions";
 import { ClientList } from "./client-list";
 import { Button, Input, Label, PageHeader } from "@/components/ui";
+import { RefreshOrgDataOnSubmit } from "@/components/org-data-provider";
 import { requireOrgManager } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+// Server Component deliberadamente liviano: solo hace el chequeo de auth
+// (requireOrgManager, se queda server-side por seguridad) y no consulta
+// "clients" — el listado sale de la cache local que ya pobló OrgDataProvider
+// al entrar a la app, asi el click en el sidebar no espera a este fetch.
 export default async function ClientesPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const { organization } = await requireOrgManager();
+  await requireOrgManager();
   const { error } = await searchParams;
-
-  const supabase = await createSupabaseServerClient();
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, address, phone, notes, is_active")
-    .eq("organization_id", organization.id)
-    .order("name", { ascending: true });
 
   return (
     <>
@@ -33,6 +30,7 @@ export default async function ClientesPage({
           Nuevo cliente
         </summary>
         <form action={createClientMemberAction} className="mt-4 grid gap-3">
+          <RefreshOrgDataOnSubmit />
           <Label>
             Nombre
             <Input name="name" required />
@@ -52,7 +50,7 @@ export default async function ClientesPage({
         </form>
       </details>
 
-      <ClientList clients={clients ?? []} />
+      <ClientList />
     </>
   );
 }

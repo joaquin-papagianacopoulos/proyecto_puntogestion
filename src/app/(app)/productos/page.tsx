@@ -3,29 +3,18 @@ import { createProductAction } from "./actions";
 import { ProductList } from "./product-list";
 import { PriceMarginFields } from "./price-margin-fields";
 import { Button, Input, Label, PageHeader } from "@/components/ui";
+import { RefreshOrgDataOnSubmit } from "@/components/org-data-provider";
 import { requireOrgManager } from "@/lib/auth";
-import { fetchAllRows } from "@/lib/fetch-all-rows";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+// Igual criterio que clientes/page.tsx: Server Component liviano, solo auth.
+// El catalogo sale de la cache local que puebla OrgDataProvider.
 export default async function ProductosPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const { organization } = await requireOrgManager();
+  await requireOrgManager();
   const { error } = await searchParams;
-
-  const supabase = await createSupabaseServerClient();
-  const products = await fetchAllRows((from, to) =>
-    supabase
-      .from("products")
-      .select(
-        "id, name, sku, price_cents, cost_cents, unit, category, is_active, in_stock, stock_quantity, low_stock_threshold",
-      )
-      .eq("organization_id", organization.id)
-      .order("name", { ascending: true })
-      .range(from, to),
-  );
 
   return (
     <>
@@ -40,6 +29,7 @@ export default async function ProductosPage({
           Nuevo producto
         </summary>
         <form action={createProductAction} className="mt-4 grid gap-3">
+          <RefreshOrgDataOnSubmit />
           <Label>
             Nombre
             <Input name="name" required />
@@ -74,7 +64,7 @@ export default async function ProductosPage({
         </form>
       </details>
 
-      <ProductList products={products} />
+      <ProductList />
     </>
   );
 }

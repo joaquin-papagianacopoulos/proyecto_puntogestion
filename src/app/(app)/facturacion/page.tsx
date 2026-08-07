@@ -25,7 +25,7 @@ export default async function FacturacionPage({
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, status, total_cents, order_date, note, vendedor_membership_id, driver_id, clients(id, name), drivers(full_name)",
+      "id, order_number, status, total_cents, order_date, note, vendedor_membership_id, driver_id, arca_cae, arca_cae_vencimiento, arca_comprobante_tipo, arca_comprobante_numero, arca_punto_venta, arca_cuit, arca_doc_tipo, arca_doc_nro, arca_invoiced_at, clients(id, name), drivers(full_name)",
     )
     .eq("organization_id", organization.id)
     .eq("order_date", fecha)
@@ -121,6 +121,15 @@ export default async function FacturacionPage({
     items: itemsByOrder.get(order.id) ?? [],
     pendingDebtCents: order.clients?.id ? debtBalanceByClient.get(order.clients.id) ?? 0 : 0,
     priceMismatch: order.status === "pendiente" && priceMismatchByOrder.has(order.id),
+    arcaCae: order.arca_cae,
+    arcaCaeVencimiento: order.arca_cae_vencimiento,
+    arcaComprobanteTipo: order.arca_comprobante_tipo,
+    arcaComprobanteNumero: order.arca_comprobante_numero,
+    arcaPuntoVenta: order.arca_punto_venta,
+    arcaCuit: order.arca_cuit,
+    arcaDocTipo: order.arca_doc_tipo,
+    arcaDocNro: order.arca_doc_nro,
+    arcaInvoicedAt: order.arca_invoiced_at,
   }));
 
   return (
@@ -161,6 +170,7 @@ export default async function FacturacionPage({
         organizationName={organization.name}
         showFacturarControls
         showAssignDriver
+        showArcaControls={organization.enabled_features.includes("arca_invoicing")}
         drivers={(drivers ?? []).map((d) => ({ id: d.id, fullName: d.full_name }))}
       />
     </>

@@ -26,7 +26,7 @@ export default async function ClientsAdminPage({
   const supabase = await createSupabaseServerClient();
   const { data: organizations } = await supabase
     .from("organizations")
-    .select("id, name, slug, business_type, is_active, created_at")
+    .select("id, name, slug, business_type, is_active, enabled_features, created_at")
     .order("created_at", { ascending: false });
 
   // Usuarios de cada distribuidora con su email (via service role, que es la
@@ -107,7 +107,7 @@ export default async function ClientsAdminPage({
           <Panel key={organization.id}>
             <form
               action={toggleOrganizationActiveAction}
-              className="grid gap-4 lg:grid-cols-[1fr_140px_120px] lg:items-end"
+              className="grid gap-4 lg:grid-cols-[1fr_140px_180px_120px] lg:items-end"
             >
               <input type="hidden" name="organization_id" value={organization.id} />
               <div>
@@ -125,6 +125,15 @@ export default async function ClientsAdminPage({
                   className="h-4 w-4 accent-brand"
                 />
                 Activo
+              </label>
+              <label className="flex min-h-10 items-center gap-2 text-sm font-medium">
+                <input
+                  name="arca_invoicing"
+                  type="checkbox"
+                  defaultChecked={organization.enabled_features?.includes("arca_invoicing")}
+                  className="h-4 w-4 accent-brand"
+                />
+                Facturacion ARCA
               </label>
               <Button className="gap-2">
                 <Save className="h-4 w-4" aria-hidden />

@@ -2,6 +2,7 @@
 
 import { Trash2 } from "lucide-react";
 import { deleteClientAction } from "./actions";
+import { RefreshOrgDataOnSubmit } from "@/components/org-data-provider";
 
 export function DeleteClientButton({ clientId, name }: { clientId: string; name: string }) {
   return (
@@ -13,6 +14,7 @@ export function DeleteClientButton({ clientId, name }: { clientId: string; name:
         }
       }}
     >
+      <RefreshOrgDataOnSubmit />
       <input type="hidden" name="client_id" value={clientId} />
       <button
         type="submit"

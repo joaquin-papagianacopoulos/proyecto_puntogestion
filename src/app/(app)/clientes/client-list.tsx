@@ -4,18 +4,12 @@ import { useMemo, useState } from "react";
 import { Save, Search } from "lucide-react";
 import { updateClientAction } from "./actions";
 import { DeleteClientButton } from "./delete-client-button";
-import { Button, Input, Label, Panel } from "@/components/ui";
+import { Button, Input, Label, Panel, Select } from "@/components/ui";
+import { RefreshOrgDataOnSubmit, useOrgData } from "@/components/org-data-provider";
 
-type Client = {
-  id: string;
-  name: string;
-  address: string | null;
-  phone: string | null;
-  notes: string | null;
-  is_active: boolean;
-};
-
-export function ClientList({ clients }: { clients: Client[] }) {
+export function ClientList() {
+  const { data, isLoading } = useOrgData();
+  const clients = data.clients;
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -45,6 +39,7 @@ export function ClientList({ clients }: { clients: Client[] }) {
         {filtered.map((client) => (
           <Panel key={client.id}>
             <form action={updateClientAction} className="grid gap-3">
+              <RefreshOrgDataOnSubmit />
               <input type="hidden" name="client_id" value={client.id} />
               <Label>
                 Nombre
@@ -61,6 +56,20 @@ export function ClientList({ clients }: { clients: Client[] }) {
               <Label>
                 Notas
                 <Input name="notes" defaultValue={client.notes ?? ""} />
+              </Label>
+              <Label>
+                CUIT / DNI (opcional, para facturar por ARCA)
+                <Input name="tax_id" defaultValue={client.tax_id ?? ""} placeholder="20111111112" />
+              </Label>
+              <Label>
+                Condicion frente al IVA
+                <Select name="iva_condition" defaultValue={client.iva_condition ?? ""}>
+                  <option value="">Sin definir (factura como Consumidor Final)</option>
+                  <option value="responsable_inscripto">Responsable Inscripto</option>
+                  <option value="monotributo">Monotributo</option>
+                  <option value="exento">Exento</option>
+                  <option value="consumidor_final">Consumidor Final</option>
+                </Select>
               </Label>
               <div className="flex items-center justify-between gap-3">
                 <label className="flex min-h-10 items-center gap-2 text-sm font-medium">
@@ -85,7 +94,7 @@ export function ClientList({ clients }: { clients: Client[] }) {
         ))}
         {filtered.length === 0 ? (
           <p className="text-sm text-neutral-500">
-            {clients.length === 0 ? "Todavia no hay clientes." : "Sin resultados."}
+            {isLoading ? "Cargando..." : clients.length === 0 ? "Todavia no hay clientes." : "Sin resultados."}
           </p>
         ) : null}
       </div>

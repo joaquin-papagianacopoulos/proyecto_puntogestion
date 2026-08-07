@@ -2,8 +2,24 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, ListChecks, Pencil, Printer, RefreshCw, RotateCcw, Send, Truck } from "lucide-react";
-import { revertOrderToPendingAction, assignDriverAction, syncOrderPricesAction } from "@/app/(app)/facturacion/actions";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Landmark,
+  ListChecks,
+  Pencil,
+  Printer,
+  RefreshCw,
+  RotateCcw,
+  Send,
+  Truck,
+} from "lucide-react";
+import {
+  revertOrderToPendingAction,
+  assignDriverAction,
+  syncOrderPricesAction,
+  sendOrderToArcaAction,
+} from "@/app/(app)/facturacion/actions";
 import { markOrderInvoicedAction } from "@/app/(app)/pedidos/actions";
 import { Button, Panel, Select } from "@/components/ui";
 import { Toast } from "@/components/toast";
@@ -21,7 +37,43 @@ export type BoardOrder = InvoiceOrder & {
   pendingDebtCents?: number;
   priceMismatch?: boolean;
   note?: string | null;
+  arcaCae?: string | null;
+  arcaCaeVencimiento?: string | null;
+  arcaComprobanteTipo?: number | null;
+  arcaComprobanteNumero?: number | null;
+  arcaPuntoVenta?: number | null;
+  arcaCuit?: string | null;
+  arcaDocTipo?: number | null;
+  arcaDocNro?: number | null;
+  arcaInvoicedAt?: string | null;
 };
+
+function arcaInvoiceInfo(order: BoardOrder): InvoiceOrder["arca"] {
+  if (
+    !order.arcaCae ||
+    !order.arcaCaeVencimiento ||
+    order.arcaComprobanteTipo == null ||
+    order.arcaComprobanteNumero == null ||
+    order.arcaPuntoVenta == null ||
+    !order.arcaCuit ||
+    order.arcaDocTipo == null ||
+    order.arcaDocNro == null ||
+    !order.arcaInvoicedAt
+  ) {
+    return null;
+  }
+  return {
+    cae: order.arcaCae,
+    caeVencimiento: order.arcaCaeVencimiento,
+    comprobanteTipo: order.arcaComprobanteTipo,
+    comprobanteNumero: order.arcaComprobanteNumero,
+    puntoVenta: order.arcaPuntoVenta,
+    cuit: order.arcaCuit,
+    docTipo: order.arcaDocTipo,
+    docNro: order.arcaDocNro,
+    fecha: order.arcaInvoicedAt.slice(0, 10),
+  };
+}
 
 const STATUS_LABELS: Record<string, string> = { pendiente: "Pendiente", facturado: "Facturado" };
 const STATUS_STYLES: Record<string, string> = {
@@ -32,7 +84,12 @@ const STATUS_STYLES: Record<string, string> = {
 async function printOrder(order: BoardOrder, organizationName: string, previousDebtCents: number) {
   const popup = window.open("", "_blank");
   try {
-    const blob = await buildInvoiceBlob({ order, items: order.items, organizationName, previousDebtCents });
+    const blob = await buildInvoiceBlob({
+      order: { ...order, arca: arcaInvoiceInfo(order) },
+      items: order.items,
+      organizationName,
+      previousDebtCents,
+    });
     const url = URL.createObjectURL(blob);
     if (popup) popup.location.href = url;
     else window.location.href = url;
@@ -47,13 +104,22 @@ export function OrderBoard({
   organizationName,
   showFacturarControls = false,
   showAssignDriver = false,
+  showArcaControls = false,
   drivers = [],
+  onMutated,
 }: {
   orders: BoardOrder[];
   organizationName: string;
   showFacturarControls?: boolean;
   showAssignDriver?: boolean;
+  showArcaControls?: boolean;
   drivers?: { id: string; fullName: string }[];
+  // Se llama despues de una mutacion que cambio datos en el servidor
+  // (asignar repartidor, etc) para que quien tenga una cache local (ver
+  // OrgDataProvider) la refresque. Nada de esto pasaba antes de la Fase 1
+  // de sidebar fluido: son estos mismos huecos los que hoy dejan la boleta
+  // "vieja" en pantalla hasta recargar a mano.
+  onMutated?: () => void;
 }) {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -65,6 +131,8 @@ export function OrderBoard({
   const [shareError, setShareError] = useState<string | null>(null);
   const [isSyncingPrices, startSyncingPrices] = useTransition();
   const [syncingOrderId, setSyncingOrderId] = useState<string | null>(null);
+  const [isSendingToArca, startSendingToArca] = useTransition();
+  const [arcaOrderId, setArcaOrderId] = useState<string | null>(null);
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -84,7 +152,7 @@ export function OrderBoard({
       const blobs = await Promise.all(
         seleccionados.map((order) =>
           buildInvoiceBlob({
-            order,
+            order: { ...order, arca: arcaInvoiceInfo(order) },
             items: order.items,
             organizationName,
             previousDebtCents: includeDebt[order.id] ? order.pendingDebtCents ?? 0 : 0,
@@ -120,6 +188,20 @@ export function OrderBoard({
     });
   }
 
+  function sendToArca(orderId: string) {
+    setArcaOrderId(orderId);
+    startSendingToArca(async () => {
+      const result = await sendOrderToArcaAction({ orderId });
+      if (result && "error" in result) {
+        setShareError(result.error ?? "No se pudo facturar en ARCA.");
+        setArcaOrderId(null);
+        return;
+      }
+      setToastMessage("Comprobante autorizado en ARCA");
+      setArcaOrderId(null);
+    });
+  }
+
   function assignSelected() {
     if (!driverChoice || selected.size === 0) return;
     startAssigning(async () => {
@@ -135,6 +217,7 @@ export function OrderBoard({
       setSelectMode(false);
       setDriverChoice("");
       setToastMessage("Repartidor asignado");
+      onMutated?.();
     });
   }
 
@@ -309,6 +392,25 @@ export function OrderBoard({
                         Revertir a pendiente
                       </button>
                     </form>
+                  )
+                ) : null}
+                {showArcaControls && order.status === "facturado" ? (
+                  order.arcaCae ? (
+                    <span className="inline-flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700">
+                      <Landmark className="h-3.5 w-3.5" aria-hidden />
+                      CAE {order.arcaCae}
+                      {order.arcaCaeVencimiento ? ` · Vto ${formatDate(order.arcaCaeVencimiento)}` : ""}
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => sendToArca(order.id)}
+                      disabled={isSendingToArca && arcaOrderId === order.id}
+                      className="inline-flex items-center gap-1.5 rounded border border-line px-2.5 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-paper disabled:opacity-50"
+                    >
+                      <Landmark className="h-3.5 w-3.5" aria-hidden />
+                      {isSendingToArca && arcaOrderId === order.id ? "Enviando a ARCA..." : "Pasar a ARCA"}
+                    </button>
                   )
                 ) : null}
               </div>
