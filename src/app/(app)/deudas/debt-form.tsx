@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import { createDebtAction } from "./actions";
 import { Button, Input, Label } from "@/components/ui";
+import { RefreshOrgDataOnSubmit, useOrgData } from "@/components/org-data-provider";
 import type { DebtDirection } from "@/types/database";
 
-type Client = { id: string; name: string };
-
-export function DebtForm({ clients }: { clients: Client[] }) {
+export function DebtForm() {
+  const { data } = useOrgData();
+  const clients = useMemo(() => data.clients.filter((c) => c.is_active), [data.clients]);
   const [direction, setDirection] = useState<DebtDirection>("nos_deben");
   const [clientId, setClientId] = useState("");
   const [clientQuery, setClientQuery] = useState("");
@@ -23,6 +24,7 @@ export function DebtForm({ clients }: { clients: Client[] }) {
 
   return (
     <form action={createDebtAction} className="grid gap-4">
+      <RefreshOrgDataOnSubmit />
       <div>
         <Label>Tipo</Label>
         <div className="mt-1 grid grid-cols-2 gap-2">

@@ -28,7 +28,11 @@ export function OrdersView({
 
   const ordersForDate = useMemo(() => data.orders.filter((o) => o.orderDate === fecha), [data.orders, fecha]);
 
-  const soloDriverName = data.drivers.length === 1 ? data.drivers[0].full_name : null;
+  // "drivers" trae todos (el toggle de Repartidores necesita ver tambien los
+  // inactivos); para asignar a un pedido, igual que la query server-side de
+  // antes, solo cuentan los activos.
+  const activeDrivers = useMemo(() => data.drivers.filter((d) => d.is_active), [data.drivers]);
+  const soloDriverName = activeDrivers.length === 1 ? activeDrivers[0].full_name : null;
 
   const boardOrders: BoardOrder[] = ordersForDate.map((order) => ({
     id: order.id,
@@ -65,7 +69,7 @@ export function OrdersView({
           orders={boardOrders}
           organizationName={organizationName}
           showAssignDriver={canManage}
-          drivers={data.drivers.map((d) => ({ id: d.id, fullName: d.full_name }))}
+          drivers={activeDrivers.map((d) => ({ id: d.id, fullName: d.full_name }))}
           onMutated={refresh}
         />
       </div>

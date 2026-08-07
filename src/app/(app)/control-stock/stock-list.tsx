@@ -5,35 +5,28 @@ import { Save, Search } from "lucide-react";
 import { updateProductStockAction } from "./actions";
 import { PriceMarginFields } from "../productos/price-margin-fields";
 import { Button, Input, Label, Panel } from "@/components/ui";
+import { RefreshOrgDataOnSubmit, useOrgData } from "@/components/org-data-provider";
 import { formatCurrency } from "@/lib/format";
-import {
-  classifyStock,
-  STOCK_BAND_LABELS,
-  STOCK_BAND_STYLES,
-  type StockBand,
-  type StockThresholds,
-} from "@/lib/stock";
-
-type Product = {
-  id: string;
-  name: string;
-  sku: string | null;
-  price_cents: number;
-  cost_cents: number | null;
-  unit: string | null;
-  stock_quantity: number | null;
-  low_stock_threshold: number | null;
-};
+import { classifyStock, DEFAULT_STOCK_THRESHOLDS, STOCK_BAND_LABELS, STOCK_BAND_STYLES, type StockBand } from "@/lib/stock";
 
 const BAND_FILTERS: (StockBand | "todos")[] = ["todos", "sin_stock", "bajo", "medio", "alto", "sin_control"];
 
-export function StockList({ products, thresholds }: { products: Product[]; thresholds: StockThresholds }) {
+export function StockList() {
+  const { data, isLoading } = useOrgData();
+  const thresholds = data.stockThresholds ?? DEFAULT_STOCK_THRESHOLDS;
+  // Igual filtro que la pagina server-side de antes: solo productos activos.
+  const products = useMemo(() => data.products.filter((p) => p.is_active), [data.products]);
   const [query, setQuery] = useState("");
   const [bandFilter, setBandFilter] = useState<StockBand | "todos">("todos");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Mismo orden que la query server-side de antes: stock_quantity ascendente
+  // (lo mas bajo primero), con los sin control (null) al final.
   const withBand = useMemo(
-    () => products.map((p) => ({ product: p, band: classifyStock(p, thresholds) })),
+    () =>
+      [...products]
+        .sort((a, b) => (a.stock_quantity ?? Infinity) - (b.stock_quantity ?? Infinity))
+        .map((p) => ({ product: p, band: classifyStock(p, thresholds) })),
     [products, thresholds],
   );
 
@@ -46,8 +39,20 @@ export function StockList({ products, thresholds }: { products: Product[]; thres
     });
   }, [withBand, query, bandFilter]);
 
+  const counts: Record<StockBand, number> = { sin_stock: 0, bajo: 0, medio: 0, alto: 0, sin_control: 0 };
+  for (const { band } of withBand) counts[band]++;
+
   return (
     <div>
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {(["sin_stock", "bajo", "medio", "alto", "sin_control"] as const).map((band) => (
+          <Panel key={band}>
+            <p className="text-xs text-neutral-500">{STOCK_BAND_LABELS[band]}</p>
+            <p className="mt-1 text-xl font-bold">{counts[band]}</p>
+          </Panel>
+        ))}
+      </div>
+
       <div className="relative mb-3">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
         <Input
@@ -102,6 +107,7 @@ export function StockList({ products, thresholds }: { products: Product[]; thres
           return (
             <Panel key={product.id}>
               <form action={updateProductStockAction} className="grid gap-3">
+                <RefreshOrgDataOnSubmit />
                 <input type="hidden" name="product_id" value={product.id} />
                 <p className="text-sm font-semibold">{product.name}</p>
                 <PriceMarginFields initialCostCents={product.cost_cents} initialPriceCents={product.price_cents} />
@@ -144,7 +150,9 @@ export function StockList({ products, thresholds }: { products: Product[]; thres
             </Panel>
           );
         })}
-        {filtered.length === 0 ? <p className="text-sm text-neutral-500">Sin resultados.</p> : null}
+        {filtered.length === 0 ? (
+          <p className="text-sm text-neutral-500">{isLoading ? "Cargando..." : "Sin resultados."}</p>
+        ) : null}
       </div>
     </div>
   );

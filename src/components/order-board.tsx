@@ -22,6 +22,7 @@ import {
 } from "@/app/(app)/facturacion/actions";
 import { markOrderInvoicedAction } from "@/app/(app)/pedidos/actions";
 import { Button, Panel, Select } from "@/components/ui";
+import { RefreshOrgDataOnSubmit } from "@/components/org-data-provider";
 import { Toast } from "@/components/toast";
 import { buildInvoiceBlob, type InvoiceItem, type InvoiceOrder } from "@/lib/invoice-pdf";
 import { mergePdfFiles } from "@/lib/pdf-merge";
@@ -185,6 +186,7 @@ export function OrderBoard({
       }
       setToastMessage("Precios actualizados");
       setSyncingOrderId(null);
+      onMutated?.();
     });
   }
 
@@ -199,6 +201,7 @@ export function OrderBoard({
       }
       setToastMessage("Comprobante autorizado en ARCA");
       setArcaOrderId(null);
+      onMutated?.();
     });
   }
 
@@ -372,6 +375,7 @@ export function OrderBoard({
                 {showFacturarControls ? (
                   order.status === "pendiente" ? (
                     <form action={markOrderInvoicedAction}>
+                      <RefreshOrgDataOnSubmit />
                       <input type="hidden" name="order_id" value={order.id} />
                       <button
                         type="submit"
@@ -383,6 +387,7 @@ export function OrderBoard({
                     </form>
                   ) : (
                     <form action={revertOrderToPendingAction}>
+                      <RefreshOrgDataOnSubmit />
                       <input type="hidden" name="order_id" value={order.id} />
                       <button
                         type="submit"

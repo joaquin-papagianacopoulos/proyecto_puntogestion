@@ -9,7 +9,6 @@ import {
   HandCoins,
   History,
   LayoutDashboard,
-  LogOut,
   Menu,
   Package,
   PlusCircle,
@@ -23,10 +22,10 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { signOutAction } from "@/app/(auth)/login/actions";
 import { ConnectivityIndicator } from "@/components/connectivity-indicator";
 import { OfflineSyncProvider } from "@/components/offline-sync-provider";
 import { OrgDataProvider } from "@/components/org-data-provider";
+import { SignOutButton } from "@/components/sign-out-button";
 import { CAPABILITIES, hasCapability } from "@/lib/permissions";
 import type { MemberRole } from "@/types/database";
 
@@ -34,6 +33,7 @@ export function AppShell({
   children,
   organizationName,
   organizationId,
+  membershipId,
   role,
   isPlatformAdmin,
   permissions,
@@ -41,6 +41,7 @@ export function AppShell({
   children: ReactNode;
   organizationName: string;
   organizationId: string | null;
+  membershipId: string | null;
   role: MemberRole | null;
   isPlatformAdmin: boolean;
   permissions: string[];
@@ -83,7 +84,7 @@ export function AppShell({
   ];
 
   return (
-    <OrgDataProvider organizationId={organizationId}>
+    <OrgDataProvider organizationId={organizationId} membershipId={membershipId}>
     <OfflineSyncProvider organizationId={organizationId}>
     <div className="min-h-screen bg-paper text-ink">
       <header className="flex items-center justify-between border-b border-line bg-white/80 px-4 py-3 lg:hidden">
@@ -165,12 +166,7 @@ export function AppShell({
           ) : null}
         </nav>
         <div className="shrink-0 border-t border-line px-4 py-4">
-          <form action={signOutAction}>
-            <button className="flex min-h-11 w-full items-center gap-3 rounded border border-line px-3 text-sm font-medium hover:bg-paper">
-              <LogOut className="h-4 w-4" aria-hidden />
-              Salir
-            </button>
-          </form>
+          <SignOutButton />
         </div>
       </aside>
       <main className="lg:pl-64">

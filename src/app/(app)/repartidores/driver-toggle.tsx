@@ -8,12 +8,14 @@ export function DriverToggle({
   label,
   checked,
   action,
+  onDone,
 }: {
   driverId: string;
   fieldName: "is_available" | "is_active";
   label: string;
   checked: boolean;
   action: (formData: FormData) => Promise<void>;
+  onDone?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -30,8 +32,9 @@ export function DriverToggle({
           if (event.target.checked) {
             formData.set(fieldName, "on");
           }
-          startTransition(() => {
-            void action(formData);
+          startTransition(async () => {
+            await action(formData);
+            onDone?.();
           });
         }}
       />

@@ -75,6 +75,7 @@ export type CachedProduct = {
 };
 
 export type CachedOrderItem = {
+  productId: string | null;
   productName: string;
   quantity: number;
   unitPriceCents: number;
@@ -94,14 +95,62 @@ export type CachedOrder = {
   driverId: string | null;
   driverName: string | null;
   items: CachedOrderItem[];
+  // Campos ARCA: solo se usan en Facturacion, quedan null en el resto de las
+  // paginas (mismo criterio que ya tenia pedidos/page.tsx, que tampoco los
+  // pedia). priceMismatch se recalcula en el cliente comparando contra
+  // products_cache, no hace falta guardarlo.
+  arcaCae: string | null;
+  arcaCaeVencimiento: string | null;
+  arcaComprobanteTipo: number | null;
+  arcaComprobanteNumero: number | null;
+  arcaPuntoVenta: number | null;
+  arcaCuit: string | null;
+  arcaDocTipo: number | null;
+  arcaDocNro: number | null;
+  arcaInvoicedAt: string | null;
 };
 
-export type CachedDriver = { id: string; full_name: string };
+export type CachedDriver = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  is_available: boolean;
+  is_active: boolean;
+};
+
+export type DebtDirection = "nos_deben" | "debemos";
+
+export type CachedDebt = {
+  id: string;
+  direction: DebtDirection;
+  clientId: string | null;
+  clientName: string | null;
+  counterpartyName: string | null;
+  description: string | null;
+  amountCents: number;
+  paidCents: number;
+  dueDate: string | null;
+};
+
+export type CachedOrderEdit = {
+  id: string;
+  orderId: string;
+  editedBy: string;
+  summary: string;
+  createdAt: string;
+  orderNumber: number | null;
+  orderDate: string | null;
+  clientName: string | null;
+};
 
 export type OrgDataSnapshot = {
   clients: CachedClient[];
   products: CachedProduct[];
   orders: CachedOrder[];
   drivers: CachedDriver[];
+  debts: CachedDebt[];
+  orderEdits: CachedOrderEdit[];
   vendorNames: Record<string, string>;
+  userNames: Record<string, string>;
+  stockThresholds: { low: number; high: number } | null;
 };

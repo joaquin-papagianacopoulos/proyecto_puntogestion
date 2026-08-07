@@ -23,6 +23,7 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
     <AppShell
       organizationName={context.organization?.name ?? "PuntoGestion"}
       organizationId={context.organization?.id ?? null}
+      membershipId={context.membership?.id ?? null}
       role={context.membership?.role ?? null}
       isPlatformAdmin={isPlatformAdmin}
       permissions={context.permissions}
